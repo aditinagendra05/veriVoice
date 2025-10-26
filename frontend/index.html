@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>veriVoice — Frontend</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin:20px; max-width:900px; }
+    button { margin:4px; }
+    .box { border:1px solid #ddd; padding:12px; margin:12px 0; border-radius:6px; }
+    pre { background:#f8f8f8; padding:10px; overflow:auto; max-height:320px; }
+  </style>
+</head>
+<body>
+  <h1>veriVoice — UI</h1>
+
+  <div class="box">
+    <h3>Upload audio and extract features</h3>
+    <input id="uploadFile" type="file" accept="audio/*" />
+    <input id="uploadUser" placeholder="user_id (optional)" />
+    <button id="btnUploadExtract">Upload & Extract</button>
+  </div>
+
+  <div class="box">
+    <h3>Server-side recording (uses backend device)</h3>
+    <label>Output name (optional): <input id="serverOutName" placeholder="recording.wav" /></label><br/>
+    <button id="btnServerStart">Start Recording (server)</button>
+    <button id="btnServerStop">Stop Recording (server)</button>
+  </div>
+
+  <div class="box">
+    <h3>Authenticate / Test</h3>
+    <label>user_id: <input id="testUser" placeholder="aditi01" /></label><br/>
+    <input id="testFile" type="file" accept="audio/*" />
+    <button id="btnTestUpload">Test (upload file)</button>
+    <button id="btnTestRecord">Test (record in browser)</button>
+  </div>
+
+  <div class="box">
+    <h3>Browser recorder (optional)</h3>
+    <button id="btnStartBrowserRec">Start (browser)</button>
+    <button id="btnStopBrowserRec">Stop & Upload to Extract</button>
+    <div id="recStatus">idle</div>
+  </div>
+
+  <h3>Output</h3>
+  <pre id="out">Ready.</pre>
+
+<script>
+const API_BASE = "http://localhost:8000";
+const outEl = document.getElementById("out");
+function log(o){ outEl.textContent = typeof o === "string" ? o : JSON.stringify(o, null, 2); }
+
+/* Helper: POST FormData to endpoint and show response */
+async function postForm(url, form) {
+  const res = await fetch(url, { method: "POST", body: form });
+  const j = await res.json().catch(()=>({ status: res.status, text: "non-json response"}));
+  return j;
+}
+
+/* Upload & Extract */
+document.getElementById("btnUploadExtract").addEventListener("click", async () => {
+  const f = document.getElementById("uploadFile").files[0];
+  const user = document.getElementById("uploadUser").value || undefined;
+  if (!f) return log("Select a file first");
+  const fd = new FormData();
+  fd.append("file", f, f.name);
+  if (user) fd.append("user_id", user);
+  log("Uploading and extracting...");
+  try {
+    const j = await postForm(`${API_BASE}/extract`, fd);
+    log(j);
+  } catch (e) { log("Error: " + e); }
+});
+
+/* Server-side recording */
+document.getElementById("btnServerStart").addEventListener("click", async () => {
+  const name = document.getElementById("serverOutName").value || undefined;
+  const fd = new FormData();
+  if (name) fd.append("output_name", name);
+  log("Starting server recording...");
+  try {
+    const j = await postForm(`${API_BASE}/record/start`, fd);
+    log(j);
+  } catch (e) { log("Error: " + e); }
+});
+
+document.getElementById("btnServerStop").addEventListener("click", async () => {
+  log("Stopping server recording...");
+  try {
+    const res = await fetch(`${API_BASE}/record/stop`, { method: "POST" });
+    const j = await res.json();
+    log(j);
+  } catch (e) { log("Error: " + e); }
+});
+
+/* Test with uploaded file */
+document.getElementById("btnTestUpload").addEventListener("click", async () => {
+  const user = document.getElementById("testUser").value;
+  if (!user) return log("Enter user_id");
+  const f = document.getElementById("testFile").files[0];
+  const fd = new FormData();
+  fd.append("user_id", user);
+  if (f) fd.append("file", f, f.name);
+  log("Running test...");
+  try {
+    const j = await postForm(`${API_BASE}/test`, fd);
+    log(j);
+  } catch (e) { log("Error: " + e); }
+});
+
+/* Browser MediaRecorder to create audio blob and upload */
+let mediaRecorder, recordedChunks = [];
+document.getElementById("btnStartBrowserRec").addEventListener("click", async () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return log("Browser recording not supported");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recordedChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => { stream.getTracks().forEach(t=>t.stop()); };
+    mediaRecorder.start();
+    document.getElementById("recStatus").textContent = "recording...";
+    log("Browser recording started");
+  } catch (e) { log("Mic permission denied or error: " + e); }
+});
+
+document.getElementById("btnStopBrowserRec").addEventListener("click", async () => {
+  if (!mediaRecorder) return log("Not recording");
+  mediaRecorder.stop();
+  document.getElementById("recStatus").textContent = "stopped";
+  // create file and upload to extract endpoint
+  const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+  const filename = `browser_${Date.now()}.webm`;
+  const fd = new FormData();
+  fd.append("file", blob, filename);
+  log("Uploading browser recording for extraction...");
+  try {
+    const j = await postForm(`${API_BASE}/extract`, fd);
+    log(j);
+  } catch (e) { log("Error: " + e); }
+});
+
+/* Test (record in browser then send to /test) */
+document.getElementById("btnTestRecord").addEventListener("click", async () => {
+  const user = document.getElementById("testUser").value;
+  if (!user) return log("Enter user_id");
+  if (!navigator.mediaDevices) return log("Browser recording not supported");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const rec = new MediaRecorder(stream);
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.start();
+    log("Recording 4 seconds for test...");
+    await new Promise(r => setTimeout(r, 4000));
+    rec.stop();
+    await new Promise(r => rec.onstop = r);
+    stream.getTracks().forEach(t=>t.stop());
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const fd = new FormData();
+    fd.append("user_id", user);
+    fd.append("file", blob, `test_${Date.now()}.webm`);
+    log("Uploading test audio...");
+    const j = await postForm(`${API_BASE}/test`, fd);
+    log(j);
+  } catch (e) { log("Error: " + e); }
+});
+</script>
+</body>
+</html>

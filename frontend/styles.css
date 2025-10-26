@@ -1,0 +1,114 @@
+/* Core layout */
+:root{
+  --bg:#ffffff;
+  --muted:#666;
+  --accent:#2563eb;
+  --accent-600:#1e40af;
+  --border:#e5e7eb;
+  --card:#f8fafc;
+  --radius:8px;
+  --mono: "Courier New", monospace;
+  --max-width:920px;
+  --pad:16px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:24px;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background:var(--bg);
+  color:#111827;
+  line-height:1.4;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  max-width:none;
+}
+
+/* Page container */
+.container{
+  max-width:var(--max-width);
+  margin:0 auto;
+}
+
+/* Cards / panels */
+.box{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:var(--pad);
+  margin:12px 0;
+  box-shadow:0 1px 2px rgba(16,24,40,0.03);
+}
+
+/* Headings */
+h1{font-size:1.5rem;margin:0 0 12px}
+h3{margin:0 0 8px;font-size:1.05rem;color:#0f172a}
+
+/* Form controls */
+input[type="text"],
+input[type="file"],
+input[type="search"],
+input[type="number"],
+textarea,
+select{
+  width:100%;
+  padding:8px 10px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:#fff;
+  margin:6px 0 10px;
+  font-size:0.95rem;
+}
+
+label{font-size:0.95rem;color:var(--muted)}
+
+/* Buttons */
+button{
+  background:var(--accent);
+  color:#fff;
+  border:none;
+  padding:8px 12px;
+  border-radius:6px;
+  cursor:pointer;
+  font-weight:600;
+  margin-right:8px;
+  transition:background .12s ease, transform .06s ease;
+}
+button:hover{background:var(--accent-600)}
+button:active{transform:translateY(1px)}
+button.secondary{
+  background:#f3f4f6;
+  color:#111827;
+  border:1px solid var(--border);
+}
+
+/* Status / output */
+#out, pre{
+  width:100%;
+  display:block;
+  background:#0f172a;
+  color:#e6eef8;
+  padding:12px;
+  border-radius:6px;
+  font-family:var(--mono);
+  font-size:0.9rem;
+  white-space:pre-wrap;
+  overflow:auto;
+  max-height:420px;
+}
+
+/* Small helpers */
+.small{font-size:0.85rem;color:var(--muted)}
+.row{display:flex;gap:8px;align-items:center}
+.col{display:flex;flex-direction:column;gap:8px}
+
+/* Responsive */
+@media (max-width:640px){
+  body{margin:12px}
+  .row{flex-direction:column;align-items:stretch}
+  button{width:100%}
+}
+
+/* Tiny accessibility and focus styles */
+:focus{outline:3px solid rgba(37,99,235,0.12);outline-offset:2px}
